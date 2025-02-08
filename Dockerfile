@@ -1,16 +1,16 @@
 # Build stage
 
-From node:18-alpine as Build
+FROM node:18-alpine AS build
 WORKDIR /app
 COPY package.json ./
 RUN npm i
 COPY . .
-RUN npm run Build
+RUN npm run build
 
 # Production stage
-From nginx:alpine
+FROM nginx:alpine
 #Copy built assets from build stage to deployment stage
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY /Nginx/default.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off"]
+CMD ["nginx", "-g", "daemon off;"]
