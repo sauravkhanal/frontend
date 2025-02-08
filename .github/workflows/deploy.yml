@@ -16,49 +16,80 @@ jobs:
               with:
                   ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-            - name: ssh into virtual machine & CLONE GITHUB REPO
+            - name: SSH into virtual machine & CLONE GITHUB REPO
               run: |
-                  ssh -o StrictHostKeyChecking=no ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_IP }} << 'EOF'
-
-                  # Ensure deployment directory exists before accessing it
-                  if [ ! -d "${{ vars.DEPLOYMENT_DIR }}" ]; then
-                    sudo mkdir -p "${{ vars.DEPLOYMENT_DIR }}"
-                  fi
-
-                  cd ${{ vars.DEPLOYMENT_DIR }}
-
-                  # Delete file if previously exists 
-                  # extract repository name  form github.repository = username/repository_name
-                  REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+                ssh -o StrictHostKeyChecking=no ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_IP }} << 'EOF'
+            
+                echo "[INFO] Starting deployment process..."
+            
+                # Ensure deployment directory exists before accessing it
+                if [ ! -d "${{ vars.DEPLOYMENT_DIR }}" ]; then
+                  echo "[INFO] Creating deployment directory: ${{ vars.DEPLOYMENT_DIR }}"
+                  sudo mkdir -p "${{ vars.DEPLOYMENT_DIR }}"
+                else
+                  echo "[INFO] Deployment directory already exists: ${{ vars.DEPLOYMENT_DIR }}"
+                fi
+            
+                # Navigate to the deployment directory
+                echo "[INFO] Changing to deployment directory: ${{ vars.DEPLOYMENT_DIR }}"
+                cd ${{ vars.DEPLOYMENT_DIR }}
+            
+                # Extract repository name from github.repository = username/repository_name
+                REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+                echo "[INFO] Repository name extracted: $REPO_NAME"
+            
+                # Delete the repository directory if it exists
+                if [ -d "$REPO_NAME" ]; then
+                  echo "[INFO] Removing existing repository directory: $REPO_NAME"
                   sudo rm -rf $REPO_NAME
-
-                  # Clone the repository with minimal depth
-                  sudo git clone --depth 1 https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-
-                  # Build the frontend docker container
-                  echo "Building frontend Docker container"
-
-                  # Generate a sanitized container name
-                  CONTAINER_NAME=$(echo "$REPO_NAME" | \
-                  tr '[:upper:]' '[:lower:]' | \
-                  sed 's/[^a-z0-9]/-/g' | \
-                  sed 's/^-\+/-/g' | \
-                  sed 's/-\+$//g')
-
-                  # Change to repo dir
-                  cd $REPO_NAME
+                else
+                  echo "[INFO] Repository directory does not exist: $REPO_NAME"
+                fi
+            
+                # Clone the repository with minimal depth
+                echo "[INFO] Cloning repository: ${{ github.repository }}"
+                sudo git clone --depth 1 https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            
+                echo "[INFO] Building frontend Docker container..."
+            
+                # Generate a sanitized container name
+                CONTAINER_NAME=$(echo "$REPO_NAME" | \
+                tr '[:upper:]' '[:lower:]' | \
+                sed 's/[^a-z0-9]/-/g' | \
+                sed 's/^-\+/-/g' | \
+                sed 's/-\+$//g')
+                echo "[INFO] Sanitized container name: $CONTAINER_NAME"
+            
+                # Change to the repository directory
+                echo "[INFO] Changing to repository directory: $REPO_NAME"
+                cd $REPO_NAME
+            
+                # Remove existing .env file if it exists
+                if [ -f .env ]; then
+                  echo "[INFO] Removing existing .env file"
                   sudo rm .env
-                  printf "%s" "${{ vars.ENV_FILE }}" > .env
-
-                  # Build the Docker container
-                  docker build --no-cache -t $CONTAINER_NAME .
-
-                  # Stop any previously running container
-                  docker stop $CONTAINER_NAME || true
-                  docker rm $CONTAINER_NAME || true
-
-                  # Run the container with the appropriate environment variables
-
-                  docker run --env-file .env --restart unless-stopped --detach --name $CONTAINER_NAME --publish ${{ vars.PORT }}:80 $CONTAINER_NAME:latest
-
-                  EOF
+                else
+                  echo "[INFO] .env file does not exist"
+                fi
+            
+                # Create a new .env file with the provided environment variables
+                echo "[INFO] Creating new .env file"
+                sudo printf "%s" "${{ vars.ENV_FILE }}" > .env
+            
+                # Build the Docker container
+                echo "[INFO] Building Docker container: $CONTAINER_NAME"
+                docker build --no-cache -t $CONTAINER_NAME .
+            
+                # Stop and remove any previously running container
+                echo "[INFO] Stopping and removing any existing container: $CONTAINER_NAME"
+                docker stop $CONTAINER_NAME || true
+                docker rm $CONTAINER_NAME || true
+            
+                # Run the container with the appropriate environment variables
+                echo "[INFO] Running Docker container: $CONTAINER_NAME"
+                docker run --env-file .env --restart unless-stopped --detach --name $CONTAINER_NAME --publish ${{ vars.PORT }}:80 $CONTAINER_NAME:latest
+            
+                # Log: End of script
+                echo "[INFO] Deployment process completed successfully."
+            
+                EOF
