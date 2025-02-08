@@ -74,8 +74,8 @@ jobs:
             
                 # Create a new .env file with the provided environment variables
                 echo "[INFO] Creating new .env file"
-                sudo printf "%s" "${{ vars.ENV_FILE }}" > .env
-            
+                echo "${{ vars.ENV_FILE }}" | sudo tee .env > /dev/null
+
                 # Build the Docker container
                 echo "[INFO] Building Docker container: $CONTAINER_NAME"
                 docker build --no-cache -t $CONTAINER_NAME .
