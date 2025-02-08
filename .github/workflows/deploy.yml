@@ -87,7 +87,7 @@ jobs:
             
                 # Run the container with the appropriate environment variables
                 echo "[INFO] Running Docker container: $CONTAINER_NAME"
-                docker run --env-file .env --restart unless-stopped --detach --name $CONTAINER_NAME --publish ${{ vars.PORT }}:80 $CONTAINER_NAME:latest
+                docker run --restart unless-stopped --detach --name $CONTAINER_NAME --publish ${{ vars.PORT }}:80 $CONTAINER_NAME:latest
             
                 # Log: End of script
                 echo "[INFO] Deployment process completed successfully."
